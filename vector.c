@@ -75,10 +75,39 @@ Vector vector_splice(Vector* vec, size_t index, size_t count) {
 void vector_shrink(Vector* vec) {
 	vec->data = realloc(vec->data, (vec->allocated = vec->used) * vec->data_size);
 }
-void vector_set(Vector* vec, void* data, size_t index) {
-	// TODO: Logger
-	if(index >= vec->used) return;
-	memcpy(vector_get_ptr(vec, index), data, vec->data_size);
+void vector_replace(Vector* vec, void* data, size_t index) {
+	vector_replace_many(vec, data, index, 1);
+}
+void vector_replace_many(Vector* vec, void* data, size_t index, size_t count) {
+	size_t i = index >= vec->used ? vec->used - 1 : index;
+	size_t c = i + count >= vec->used ? vec->used - i : count;
+	memcpy(vector_get_ptr(vec, i), data, c * vec->data_size);
+}
+void vector_copy(Vector* vec, size_t index, void* data) {
+	vector_copy_many(vec, index, 1, data);
+}
+void vector_copy_many(Vector* vec, size_t index, size_t count, void* data) {
+	size_t i = index >= vec->used ? vec->used - 1 : index;
+	size_t c = i + count >= vec->used ? vec->used - i : count;
+	memcpy(data, vector_get_ptr(vec, i), c * vec->data_size);
+}
+void vector_swap(Vector* vec, size_t index, void* data) {
+	vector_swap_many(vec, index, 1, data);
+}
+void vector_swap_many(Vector *vec, size_t index, size_t count, void* data) {
+	size_t i = index >= vec->used ? vec->used - 1 : index;
+	size_t c = i + count >= vec->used ? vec->used - i : count;
+#ifdef VECTOR_SWAP_TMP_VALUE_IN_VECTOR
+	vector_push_array(vec, data, c); // copy data to end of vec
+	vector_copy_many(vec, i, c, data); // copy slice of vec to data
+	vector_pop_many(vec, c, vector_get_ptr(vec, i)); // copy end of vec to slice of vec
+#else
+	void* tmp = malloc(c * vec->data_size);
+	memcpy(tmp, data, c * vec->data_size); // copy data to tmp
+	vector_copy_many(vec, i, c, data); // copy slice of vec to data
+	vector_replace_many(vec, tmp, i, c); // copy tmp to slice of vec
+	free(tmp);
+#endif
 }
 void vector_concat(Vector* vec, Vector* other) {
 	vector_push_array(vec, other->data, other->used);

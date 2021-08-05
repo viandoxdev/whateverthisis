@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -g
 LDFLAGS=-lm
-BIN=bin
+BIN=/tmp/ge7_bin
 EXEC=out
 EXEC:=$(BIN)/$(EXEC)
 SRC=$(wildcard *.c)
@@ -32,8 +32,9 @@ $(BIN)/%.o: %.c $$(wildcard %.h)
 # ---------------------
 
 tests: tests.c $(OBJ)
+	rm -rf $(BIN)/test
 	mkdir -p $(BIN)/test
-	sed < tests.c -E 's/^\/\/\% *//g' > bin/test/.tests.c
+	sed < tests.c -E 's/^\/\/\% *//g' > $(BIN)/test/.tests.c
 	./make_test.sh $(BIN) $(CC)
 
 clean:

@@ -11,6 +11,8 @@ secspec=""
 secname=""
 curtest=""
 
+gtsd=$(date +%s%3N)
+
 echo "" > "$tests/global"
 # repeat $1 $2 times
 function repeat() {
@@ -91,6 +93,8 @@ function run_test() {
 echo ""
 echo -e "\033[31mTESTS - MST \033[0m\033[90m(My Shitty Tests)\033[0m"
 echo ""
+# stands for Parsing Timer Start Date
+ptsd=$(date +%s%3N)
 
 draw_task "[parsing]  " "0" "1"
 if [[ -e "$tests/.tests.c" ]]; then
@@ -114,7 +118,7 @@ if [[ -e "$tests/.tests.c" ]]; then
 				if [[ "$secspec" = "general" ]]; then
 					echo "$line" >> "$tests/$secname"
 				else
-					re="^[[:blank:]]*void[[:blank:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:blank:]]*\([[:blank:]]*\)([[:blank:]]*\{[[:blank:]]*)$"
+					re="^[[:blank:]]*void[[:blank:]]+_*([a-zA-Z][a-zA-Z0-9_]*)[[:blank:]]*\([[:blank:]]*\)([[:blank:]]*\{[[:blank:]]*)$"
 					if [[ "$line" =~ $re ]]; then
 						curtest=${BASH_REMATCH[1]}
 						line="int main()${BASH_REMATCH[2]}"
@@ -131,6 +135,8 @@ fi
 erase_pre
 draw_task "[parsing]  " "1" "1"
 erase_post
+ptse=$(date +%s%3N)
+rm -rf "${tests:?}/bin"
 mkdir -p "$tests/bin"
 num="0" # total compilation
 _num="0" # current
@@ -182,7 +188,7 @@ function print_end() {
 }
 
 tss=$(date +%s%3N)
-
+ctse=$(date +%s%3N)
 for i in "$tests/bin"/*; do
 	erase_pre
 	erase_pre
@@ -210,15 +216,44 @@ for i in "$tests/bin"/*; do
 done
 
 tse=$(date +%0s%3N)
-delta=$((tse - tss))
+rdlt="$((tse - tss))"
+gdlt="$((tse - gtsd))"
+pdlt="$((ptse - ptsd))"
+cdlt="$((ctse - ptse))"
+
+function dlttosec() {
+	r="$1"
+	if [[ ${#r} -lt 4 ]]; then
+		r="$(repeat "0" $((4 - ${#r})))$r"
+	fi
+	echo "$r" | sed 's/\([0-9]\{3\}\)$/.\1/'
+}
+
+sg="$(dlttosec "$gdlt")"
+sp="$(dlttosec "$pdlt")"
+sc="$(dlttosec "$cdlt")"
+sr="$(dlttosec "$rdlt")"
 
 echo ""
 echo -e "\033[31mMST: Tests ran, results: \033[0m"
 echo ""
-echo -e "ran \033[1m$_num\033[0m tests in \033[1m$(echo "$delta" | sed 's/\([0-9]\{3\}\)$/.\1/')\033[0ms"
+echo -e "ran \033[1m$_num\033[0m tests in \033[1m$sg\033[0ms"
+echo "(parsing: ${sp}s, compiling: ${sc}s, running: ${sr}s)"
 echo -e "passed: \033[1m$((_num - failed_total))\033[0m/\033[1m$_num\033[0m (failed: \033[1m$failed_total\033[0m)"
-echo "failed tests: "
-for f in "${failed_tests[@]}"; do
-	echo -e "\033[31m($(echo "$f" | cut -d "." -f 1)) $(echo "$f" | cut -d "." -f 2)\033[0m"
-done
 
+if ! [[ "$failed_total" = "0"  ]]; then
+	echo "failed tests: "
+	for f in "${failed_tests[@]}"; do
+		echo -e "\033[31m($(echo "$f" | cut -d "." -f 1)) $(echo "$f" | cut -d "." -f 2)\033[0m"
+	done
+	echo ""
+	echo -en "\033[1m\033[31mTESTS FAILED\033[0m"
+	echo ""
+	exit 1
+else
+	echo ""
+	echo -en "\033[1mTESTS PASSED\033[0m"
+	echo ""
+	exit 0
+fi
+stty sane
