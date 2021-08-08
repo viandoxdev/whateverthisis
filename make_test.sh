@@ -3,6 +3,7 @@
 # argument from Makefile
 BIN="$1"
 CC="$2"
+TIMEOUT="$3"
 
 tests="$BIN/test"
 
@@ -75,7 +76,7 @@ function run_test() {
 	txt=""
 	txtl="0"
 	
-	if ( exec >/dev/null 2>&1; $prg ); then
+	if ( exec >/dev/null 2>&1; timeout $TIMEOUT $prg ); then
 		txt="\033[94m[✓]\033[0m"
 		txtl="3"
 	else
@@ -106,6 +107,7 @@ if [[ -e "$tests/.tests.c" ]]; then
 				sec="$t"
 				if [[ "$t" = "TEST" ]]; then
 					secname="$(echo "$line" | cut -d "[" -f 3 | cut -d "]" -f 1)"
+					curtest=""
 					echo "" > "$tests/$secname"
 				fi
 			else

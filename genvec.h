@@ -64,7 +64,6 @@ struct GenVec {
 struct GenIndex {
 	size_t index;
 	size_t generation;
-	size_t data_size;
 };
 
 typedef enum {
@@ -110,12 +109,14 @@ size_t entry_to_size_t(GenEntry a);
 size_t make_new_free(size_t next_free);
 size_t make_new_occupied(size_t generation);
 GenVec genvec_new(size_t init_size, size_t data_size);
-void genvec_push(GenVec* gv, void* data);
+GenIndex genvec_push(GenVec* gv, void* data);
 void genvec_remove(GenVec* gv, GenIndex gi, void* data);
 GenEntry genvec_get_entry(GenVec* gv, size_t index);
 GenIndex genvec_get_index(GenVec* gv, size_t index);
 bool genvec_owns(GenVec* gv, GenIndex gi);
 bool genvec_has(GenVec* gv, size_t index);
 size_t genvec_length(GenVec* gv);
+void* genvec_get(GenVec* gv, GenIndex gi);
+void genvec_free(GenVec gv);
 
 #endif

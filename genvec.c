@@ -9,9 +9,15 @@ GenEntry size_t_to_entry(size_t* a) {
 	res.any.info = (*a) & ~GENVEC_GENOCCUPIED_BIT;
 	if(occupied) {
 		res.occupied.state = Occupied;
-		res.occupied.data = a + sizeof(size_t);
+		// i never knew but 
+		// size_t* ptr = ...
+		// ptr += 1 (adds sizeof(size_t) bytes)
+		// doesn't do the same thing as
+		// void* ptr = ...
+		// ptr += 1 (adds 1 bytes)
+		res.occupied.data = ((void*)a) + sizeof(size_t);
 	} else {
-		res.occupied.state = Free;
+		res.free.state = Free;
 	}
 	return res;
 }
@@ -26,7 +32,7 @@ size_t entry_to_size_t(GenEntry a) {
 	return res;
 }
 
-// while the more general entry_to_size_t(GenEntryFree) works, this is much faster. (ans less verbose)
+// while the more general entry_to_size_t(GenEntryFree) works, this is much faster. (and less verbose)
 size_t make_new_free(size_t next_free) {
 	return next_free | GENVEC_GENOCCUPIED_BIT;
 }
@@ -53,15 +59,20 @@ GenVec genvec_new(size_t init_size, size_t data_size) {
 	return res;
 }
 
-void genvec_push(GenVec* gv, void* data) {
+GenIndex genvec_push(GenVec* gv, void* data) {
 	// last_free is guarenteed to point at a free entry
 	GenEntryFree last_free = genvec_get_entry(gv, gv->last_free).free;
 	void* slot_ptr = vector_get_ptr(&gv->vec, gv->last_free);
 	void* data_ptr = slot_ptr  + sizeof(size_t);
 	// set info in slot
 	*((size_t*)slot_ptr) = make_new_occupied(gv->generation);
-	// set data
-	memcpy(data_ptr, data, gv->data_size);
+	if(data != NULL) { // data may be null if needed.
+		// set data
+		memcpy(data_ptr, data, gv->data_size);
+	}
+	GenIndex insertion_index = {};
+	insertion_index.generation = gv->generation;
+	insertion_index.index = gv->last_free;
 	// if last_free points to itself
 	if(last_free.next_free == gv->last_free) {
 		// make room for new free
@@ -69,10 +80,12 @@ void genvec_push(GenVec* gv, void* data) {
 		size_t new_free = make_new_free(gv->vec.used - 1);
 		// put new_free in array
 		*((size_t*)vector_get_ptr(&gv->vec, gv->vec.used - 1)) = new_free;
+		gv->last_free = gv->vec.used - 1;
 	} else {
 		// if it doesn't just get the next free
 		gv->last_free = last_free.next_free;
 	}
+	return insertion_index;
 }
 
 void genvec_remove(GenVec* gv, GenIndex gi, void* data) {
@@ -114,6 +127,12 @@ GenIndex genvec_get_index(GenVec* gv, size_t index) {
 	}
 }
 
+void* genvec_get(GenVec* gv, GenIndex gi) {
+	if(!genvec_owns(gv, gi)) return NULL;
+	GenEntryOccupied entry = genvec_get_entry(gv, gi.index).occupied;
+	return entry.data;
+}
+
 bool genvec_owns(GenVec* gv, GenIndex gi) {
 	GenEntry entry = genvec_get_entry(gv, gi.index);
 	return entry.any.state == Occupied && entry.occupied.generation == gi.generation;
@@ -126,4 +145,8 @@ bool genvec_has(GenVec* gv, size_t index) {
 
 size_t genvec_length(GenVec* gv) {
 	return gv->vec.used;
+}
+
+void genvec_free(GenVec gv) {
+	vector_free(&gv.vec);
 }

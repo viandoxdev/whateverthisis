@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -g
-LDFLAGS=-lm
+CFLAGS=-Wall -g #-fsanitize=address
+LDFLAGS=-lm #-fsanitize=address
 BIN=/tmp/ge7_bin
 EXEC=out
 EXEC:=$(BIN)/$(EXEC)
@@ -35,7 +35,8 @@ tests: tests.c $(OBJ)
 	rm -rf $(BIN)/test
 	mkdir -p $(BIN)/test
 	sed < tests.c -E 's/^\/\/\% *//g' > $(BIN)/test/.tests.c
-	./make_test.sh $(BIN) $(CC)
+	# 5 is the timeout
+	./make_test.sh $(BIN) $(CC) 5
 
 clean:
 	rm -rf $(BIN)

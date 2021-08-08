@@ -149,7 +149,7 @@ void shift() {
 	vector_shift(&v, NULL);
 }
 
-void remove() {
+void _remove() {
 	Vector v = vdef(3);
 	int r;
 	vector_remove(&v, 1, &r);
@@ -267,8 +267,84 @@ void has() {
 //% #[TEST] [genvec]
 //% #[general]
 #include "genvec.h" 
+#include <stdio.h>
 //% #[tests]
 void get_out_of_range() {
 	GenVec v = genvec_new(5, sizeof(int));
 	assert(!genvec_has(&v, 1));
+}
+
+void get_removed() {
+	GenVec v = genvec_new(5, sizeof(int));
+	int a = 5;
+	genvec_push(&v, &a);
+	assert(genvec_has(&v, 0));
+	GenIndex gi = genvec_get_index(&v, 0);
+	int* ptr = genvec_get(&v, gi);
+	printf("%p %d\n", ptr, *ptr);
+	assert(*ptr == 5);
+	genvec_remove(&v, gi, NULL);
+	a = 10;
+	genvec_push(&v, &a);
+	assert(!genvec_owns(&v, gi));
+}
+
+//% #[TEST] [hashmap]
+//% #[general]
+#include "hashmap.h"
+//% #[tests]
+void create() {
+	HashMap map = hashmap_new(sizeof(int));
+}
+
+void set() {
+	HashMap map = hashmap_new(sizeof(int));
+	char key[] = "key1";
+	int a = 51;
+	hashmap_set(&map, key, strlen(key) * sizeof(char), &a);
+	int* b = hashmap_get(&map, key, strlen(key) * sizeof(char));
+	assert(*b == 51);
+}
+
+void __remove() {
+	HashMap map = hashmap_new(sizeof(int));
+	char key[] = "key1";
+	int a = 51;
+	hashmap_set(&map, key, strlen(key) * sizeof(char), &a);
+	assert(hashmap_has(&map, key, strlen(key) * sizeof(char)));
+	hashmap_remove(&map, key, strlen(key) * sizeof(char));
+	assert(!hashmap_has(&map, key, strlen(key) * sizeof(char)));
+}
+
+void str_variants() {
+	HashMap map = hashmap_new(sizeof(int));
+	int a = 88;
+	hashmap_set_str(&map, "key5", &a);
+	int* b = hashmap_get_str(&map, "key5");
+	assert(*b == 88);
+	hashmap_remove_str(&map, "key5");
+	assert(!hashmap_has_str(&map, "key5"));
+}
+
+void resize() {
+	HashMap map = hashmap_new(sizeof(int));
+	int a;
+	a = 1; hashmap_set_str(&map, "first_key", &a);
+	a = 2; hashmap_set_str(&map, "second_key", &a);
+	a = 3; hashmap_set_str(&map, "third_key", &a);
+	a = 4; hashmap_set_str(&map, "fourth_key", &a);
+	a = 5; hashmap_set_str(&map, "fifth_key", &a);
+	hashmap_resize(&map, map.buckets_count * 2);
+	int* b;
+	hashmap_debug(map, "%d");
+	b = hashmap_get_str(&map, "first_key");
+	assert(*b == 1);
+	b = hashmap_get_str(&map, "second_key");
+	assert(*b == 2);
+	b = hashmap_get_str(&map, "third_key"); 
+	assert(*b == 3);
+	b = hashmap_get_str(&map, "fourth_key");
+	assert(*b == 4);
+	b = hashmap_get_str(&map, "fifth_key"); 
+	assert(*b == 5);
 }
