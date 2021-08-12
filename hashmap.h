@@ -15,7 +15,7 @@ struct HashMapEntry {
 };
 
 struct HashMap {
-	size_t (*hash)(void* data, size_t size, size_t M);
+	size_t (*hash)(const void* data, size_t size);
 	GenVec overflow;
 	size_t buckets_count;
 	void* buckets;
@@ -26,12 +26,16 @@ struct HashMap {
 typedef struct HashMapEntry HashMapEntry;
 typedef struct HashMap HashMap;
 
-size_t  default_hash(void* data, size_t size, size_t M);
+size_t  default_hash(const void* data, size_t size);
 HashMap hashmap_new(size_t data_size);
-size_t  hashmap_get_hash_mask(size_t buckets_count);
+float   hashmap_get_load_factor(HashMap* map);
+void    hashmap_set_hash(HashMap* map, size_t hash, void* data);
 void    hashmap_set(HashMap* map, void* key, size_t key_size, void* data);
+bool    hashmap_has_hash(HashMap* map, size_t hash);
 bool    hashmap_has(HashMap* map, void* key, size_t key_size);
+void*   hashmap_get_hash(HashMap* map, size_t hash);
 void*   hashmap_get(HashMap* map, void* key, size_t key_size);
+void    hashmap_remove_hash(HashMap* map, size_t hash);
 void    hashmap_remove(HashMap* map, void* key, size_t key_size);
 void    hashmap_set_str(HashMap* map, char* key, void* data);
 void    hashmap_remove_str(HashMap* map, char* key);
@@ -40,5 +44,6 @@ void*   hashmap_get_str(HashMap* map, char* key);
 void    hashmap_resize(HashMap* map, size_t new_bucket_count);
 void    hashmap_free(HashMap map);
 void    hashmap_debug(HashMap map, char* format);
+Vector  hashmap_values(HashMap* map);
 
 #endif

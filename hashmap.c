@@ -1,5 +1,6 @@
 #include "hashmap.h"
 #include "genvec.h"
+#include "vector.h"
 #include <stdlib.h>
 #include <limits.h>
 #include <stdio.h>
@@ -25,7 +26,7 @@ unsigned long t;
 
 unsigned long _hash_seed = 0;
 
-uint64_t _get_block(void* data, size_t size, int index) {
+uint64_t _get_block(const void* data, size_t size, int index) {
 	size_t res = 0;
 	size_t byte_offset = index * sizeof(uint64_t);
 	memcpy(&res, data + byte_offset, size - byte_offset > sizeof(uint64_t) ? sizeof(uint64_t) : byte_offset);
@@ -46,7 +47,7 @@ uint64_t _fmix64(uint64_t k) {
 }
 
 // lets call it what it is, a copy and paste of MurmurHash3 x64 128 bit xor folded onto 64 adapted to the arguments
-size_t default_hash(void* data, size_t size, size_t M) {
+size_t default_hash(const void* data, size_t size) {
 	const int nblocks = size / (2 * sizeof(uint64_t));
 	
 	while(!_hash_seed) { _hash_seed = xorshf96(); }
@@ -163,9 +164,8 @@ size_t hashmap_get_hash_mask(size_t buckets_count) {
 	return buckets_count - 1;
 }
 
-void hashmap_set(HashMap* map, void* key, size_t key_size, void* data) {
+void hashmap_set_hash(HashMap* map, size_t hash, void* data) {
 	size_t mask = hashmap_get_hash_mask(map->buckets_count);
-	size_t hash = (*map->hash)(key, key_size, map->buckets_count);
 	size_t index = hash & mask;
 	__hashmap_put_at_index(index, hash, map->buckets, &map->overflow, map->data_size, data);
 	map->members++;
@@ -174,9 +174,13 @@ void hashmap_set(HashMap* map, void* key, size_t key_size, void* data) {
 	}
 }
 
-bool hashmap_has(HashMap* map, void* key, size_t key_size) {
+void hashmap_set(HashMap* map, void* key, size_t key_size, void* data) {
+	size_t hash = (*map->hash)(key, key_size);
+	hashmap_set_hash(map, hash, data);
+}
+
+bool hashmap_has_hash(HashMap* map, size_t hash) {
 	size_t mask = hashmap_get_hash_mask(map->buckets_count);
-	size_t hash = (*map->hash)(key, key_size, map->buckets_count);
 	size_t index = hash & mask;
 	HashMapEntry* entry = map->buckets + index * map->overflow.data_size;
 	if(!entry->occupied) return false;
@@ -189,9 +193,13 @@ bool hashmap_has(HashMap* map, void* key, size_t key_size) {
 	}
 }
 
-void* hashmap_get(HashMap* map, void* key, size_t key_size) {
+bool hashmap_has(HashMap* map, void* key, size_t key_size) {
+	size_t hash = (*map->hash)(key, key_size);
+	return hashmap_has_hash(map, hash);
+}
+
+void* hashmap_get_hash(HashMap* map, size_t hash) {
 	size_t mask = hashmap_get_hash_mask(map->buckets_count);
-	size_t hash = (*map->hash)(key, key_size, map->buckets_count);
 	size_t index = hash & mask;
 	HashMapEntry* entry = map->buckets + index * map->overflow.data_size;
 	if(!entry->occupied) return NULL;
@@ -205,9 +213,13 @@ void* hashmap_get(HashMap* map, void* key, size_t key_size) {
 	return entry + 1;
 }
 
-void hashmap_remove(HashMap* map, void* key, size_t key_size) {
+void* hashmap_get(HashMap* map, void* key, size_t key_size) {
+	size_t hash = (*map->hash)(key, key_size);
+	return hashmap_get_hash(map, hash);
+}
+
+void hashmap_remove_hash(HashMap* map, size_t hash) {
 	size_t mask = hashmap_get_hash_mask(map->buckets_count);
-	size_t hash = (*map->hash)(key, key_size, map->buckets_count);
 	size_t index = hash & mask;
 	HashMapEntry* entry = map->buckets + index * map->overflow.data_size;
 	HashMapEntry* prev = NULL;
@@ -242,6 +254,11 @@ void hashmap_remove(HashMap* map, void* key, size_t key_size) {
 		entry->occupied = false;
 	}
 	map->members--;
+}
+
+void hashmap_remove(HashMap* map, void* key, size_t key_size) {
+	size_t hash = (*map->hash)(key, key_size);
+	hashmap_remove_hash(map, hash);
 }
 
 void hashmap_set_str(HashMap* map, char* key, void* data) {
@@ -296,6 +313,21 @@ void _center(size_t length, char* format, uintmax_t value) {
 	int padright = length - l - padleft;
 	snprintf(str, l + 1, format, value);
 	printf("%*s%s%*s", padleft, "", str, padright, "");
+}
+
+Vector hashmap_values(HashMap* map) {
+	Vector res = vector_new(map->members, map->data_size);
+	for(int i = 0; i < map->buckets_count; i++) {
+		HashMapEntry* entry = (HashMapEntry*)(map->buckets + i * map->overflow.data_size);
+		if(entry->occupied) {
+			vector_push(&res, entry + 1);
+			while(entry->has_next) {
+				entry = genvec_get(&map->overflow, entry->next);
+				vector_push(&res, entry + 1);
+			}
+		}
+	}
+	return res;
 }
 
 

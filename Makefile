@@ -6,9 +6,10 @@ EXEC=out
 EXEC:=$(BIN)/$(EXEC)
 SRC=$(wildcard *.c)
 # put any c file that sould not be included in compilation here
-SRC:=$(filter-out tests.c makecounter.c,$(SRC))
+SRC:=$(filter-out tests.c hash.c makecounter.c,$(SRC))
 OBJ=$(SRC:%.c=%.o)
 OBJ:=$(OBJ:%=$(BIN)/%)
+COMPS=$(wildcard components/*.h)
 
 $(shell mkdir -p $(BIN))
 
@@ -38,7 +39,16 @@ tests: tests.c $(OBJ)
 	# 5 is the timeout
 	./make_test.sh $(BIN) $(CC) 5
 
+components.h: $(COMPS) $(BIN)/hash make_components.sh
+	./make_components.sh $(BIN)
+
+$(BIN)/hash: $(BIN)/hash.o $(BIN)/hashmap.o $(BIN)/genvec.o $(BIN)/vector.o
+	$(CC) $^ -o $@
+$(BIN)/hash.o: hash.c
+	$(CC) $< -c -o $@
+
 clean:
+	rm -f components.h
 	rm -rf $(BIN)
 
-.PHONY: all clean
+.PHONY: all clean 

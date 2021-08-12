@@ -158,7 +158,7 @@ for i in "$tests"/*.*; do
 	mv "$i" "__tmp_test.c"
 	bash -c "$CC -c __tmp_test.c -o $BIN/__tmp_test.o"
 	[[ -f "$BIN/main.o" ]] && mv "$BIN/main.o" "$BIN/main.o.hidden"
-	bash -c "$CC $BIN/*.o -o $tests/bin/$(basename "$i")"
+	bash -c "$CC $BIN/*.o -o $tests/bin/$(basename "$i") -lm"
 	[[ -f "$BIN/main.o.hidden" ]] && mv "$BIN/main.o.hidden" "$BIN/main.O"
 	rm "$BIN/__tmp_test.o"
 	mv "__tmp_test.c" "$i"
