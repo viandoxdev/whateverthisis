@@ -14,7 +14,7 @@ curtest=""
 
 gtsd=$(date +%s%3N)
 
-echo "" > "$tests/global"
+echo "" > "$tests/src/global"
 # repeat $1 $2 times
 function repeat() {
 	if [[ "$2" = "0" ]]; then
@@ -108,60 +108,82 @@ if [[ -e "$tests/.tests.c" ]]; then
 				if [[ "$t" = "TEST" ]]; then
 					secname="$(echo "$line" | cut -d "[" -f 3 | cut -d "]" -f 1)"
 					curtest=""
-					echo "" > "$tests/$secname"
+					echo "" > "$tests/src/$secname"
 				fi
 			else
 				secspec="$t"
 			fi
 		else
 			if [[ "$sec" = "GLOBAL" ]]; then
-				echo "$line" >> "$tests/global"
+				echo "$line" >> "$tests/src/global"
 			else
 				if [[ "$secspec" = "general" ]]; then
-					echo "$line" >> "$tests/$secname"
+					echo "$line" >> "$tests/src/$secname"
 				else
 					re="^[[:blank:]]*void[[:blank:]]+_*([a-zA-Z][a-zA-Z0-9_]*)[[:blank:]]*\([[:blank:]]*\)([[:blank:]]*\{[[:blank:]]*)$"
 					if [[ "$line" =~ $re ]]; then
 						curtest=${BASH_REMATCH[1]}
 						line="int main()${BASH_REMATCH[2]}"
-						echo "" > "$tests/$secname.$curtest"
+						echo "" > "$tests/src/$secname.$curtest"
 					fi
 					if [[ -n "$curtest" ]]; then
-						echo "$line" >> "$tests/$secname.$curtest"
+						echo "$line" >> "$tests/src/$secname.$curtest"
 					fi
 				fi
 			fi
 		fi
 	done < "$tests/.tests.c"
 fi
+for i in "$tests/src"/*.*; do
+	mv "$i" "$i.tmp"
+	bname=$(basename "$i")
+	tname=$(basename "$i" | cut -d "." -f1)
+	if [[ -f "$tests/src/global" ]]; then
+		cat "$tests/src/global" >> "$i"
+	fi
+	if [[ -f "$tests/src/$tname" ]]; then
+		cat "$tests/src/$tname" >> "$i"
+	fi
+	tr '\n' '\f' < "$i.tmp" | sed 's/\(.*\)\}/\1\treturn 0;\n}/m' | tr '\f' '\n' >> "$i"
+	rm "$i.tmp"
+	# copy original timestamp if file didn't change
+	if [[ -f "$tests/cmp/$bname" ]] && diff -q "$tests/src/$bname" "$tests/cmp/$bname"; then
+		touch -r "$tests/cmp/$bname" "$tests/src/$bname"
+	fi
+done
+rm -rf "$tests/cmp"
 erase_pre
 draw_task "[parsing]  " "1" "1"
 erase_post
 ptse=$(date +%s%3N)
-rm -rf "${tests:?}/bin"
 mkdir -p "$tests/bin"
 num="0" # total compilation
 _num="0" # current
-for i in "$tests"/*.*; do num=$((num + 1)); done
+for i in "$tests/src"/*.*; do num=$((num + 1)); done
+# remove executables which sources couldn't be find (because those are of removed tests
+for i in "$tests/bin"/*; do
+	bname=$(basename "$i")
+	if [[ ! -f "$tests/src/$bname"  ]]; then
+		rm "$i"
+	fi
+done
 draw_task "[compiling]" "0" "$num"
-for i in "$tests"/*.*; do
-	mv "$i" "$i.tmp"
-	tname=$(basename "$i" | cut -d "." -f1)
-	if [[ -f "$tests/global" ]]; then
-		cat "$tests/global" >> "$i"
+for i in "$tests/src"/*.*; do
+	bname=$(basename "$i")
+	sorcd=$(date +%s%N --reference "$tests/src/$bname")
+	execd="0"
+	if [[ -f "$tests/bin/$bname" ]]; then
+		execd=$(date +%s%N --reference "$tests/bin/$bname")
 	fi
-	if [[ -f "$tests/$tname" ]]; then
-		cat "$tests/$tname" >> "$i"
+	if [[ $execd -lt $sorcd ]]; then # source is newer than exec
+		mv "$i" "__tmp_test.c"
+		bash -c "$CC -c __tmp_test.c -o $BIN/__tmp_test.o"
+		[[ -f "$BIN/main.o" ]] && mv "$BIN/main.o" "$BIN/main.o.hidden"
+		bash -c "$CC $BIN/*.o -o $tests/bin/$(basename "$i") -lm"
+		[[ -f "$BIN/main.o.hidden" ]] && mv "$BIN/main.o.hidden" "$BIN/main.O"
+		rm "$BIN/__tmp_test.o"
+		mv "__tmp_test.c" "$i"
 	fi
-	tr '\n' '\f' < "$i.tmp" | sed 's/\(.*\)\}/\1\treturn 0;\n}/m' | tr '\f' '\n' >> "$i"
-	rm "$i.tmp"
-	mv "$i" "__tmp_test.c"
-	bash -c "$CC -c __tmp_test.c -o $BIN/__tmp_test.o"
-	[[ -f "$BIN/main.o" ]] && mv "$BIN/main.o" "$BIN/main.o.hidden"
-	bash -c "$CC $BIN/*.o -o $tests/bin/$(basename "$i") -lm"
-	[[ -f "$BIN/main.o.hidden" ]] && mv "$BIN/main.o.hidden" "$BIN/main.O"
-	rm "$BIN/__tmp_test.o"
-	mv "__tmp_test.c" "$i"
 	_num=$((_num + 1))
 	erase_pre
 	draw_task "[compiling]" "$_num" "$num"

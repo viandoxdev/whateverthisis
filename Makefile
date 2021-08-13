@@ -33,8 +33,9 @@ $(BIN)/%.o: %.c $$(wildcard %.h)
 # ---------------------
 
 tests: tests.c $(OBJ)
-	rm -rf $(BIN)/test
-	mkdir -p $(BIN)/test
+	mkdir -p $(BIN)/test/src
+	mv $(BIN)/test/src $(BIN)/test/cmp
+	mkdir -p $(BIN)/test/src
 	sed < tests.c -E 's/^\/\/\% *//g' > $(BIN)/test/.tests.c
 	# 5 is the timeout
 	./make_test.sh $(BIN) $(CC) 5
